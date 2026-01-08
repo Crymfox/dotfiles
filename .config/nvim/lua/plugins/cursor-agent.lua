@@ -70,7 +70,10 @@ return {
 
           local cleaned_lines = {}
           for _, line in ipairs(lines) do
+            -- Remove border characters and trim spaces
             local cleaned = line:gsub("[│─┌┐└┘├┤┬┴┼╭╮╯╰]", ""):match("^%s*(.-)%s*$")
+            -- Remove enumeration (e.g., "1. ", "2) ", "10. ") at the start of the line
+            cleaned = cleaned:gsub("^%d+[%.%)%s]+", "")
             table.insert(cleaned_lines, cleaned or "")
           end
 
