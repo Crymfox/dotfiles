@@ -6,6 +6,7 @@ right_format = "$cmd_duration"
 format = """$directory$git_branch$nodejs$rust$golang$lua\n$character"""
 add_newline = true
 command_timeout = 1000
+scan_timeout = 1000
 
 
 c.disabled = true

@@ -1,0 +1,432 @@
+-- Custom OpenCode Neovim Integration
+-- This sets up OpenCode terminal with floating window management
+
+return {
+  {
+    dir = vim.fn.stdpath("config") .. "/lua/plugins",
+    name = "opencode-neovim-integration",
+    lazy = false,
+    config = function()
+      -- OpenCode keymaps: <leader>O prefix (capital O for OpenCode)
+      vim.keymap.set("n", "<leader>O", ":OpenCode<CR>", {
+        desc = "OpenCode: Toggle terminal",
+      })
+
+      -- Custom OpenCode terminal toggle function
+      vim.api.nvim_create_user_command("OpenCode", function()
+        local opencode_buf = nil
+        local opencode_win = nil
+        
+        -- Find existing opencode buffer/window
+        for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+          local buf_name = vim.api.nvim_buf_get_name(buf)
+          if buf_name:match("opencode%-terminal") and vim.bo[buf].buftype == "terminal" then
+            local win = vim.fn.bufwinid(buf)
+            if win ~= -1 then
+              opencode_buf = buf
+              opencode_win = win
+              break
+            end
+          end
+        end
+        
+        if opencode_win and opencode_win ~= -1 then
+          -- Hide the window if it exists
+          vim.api.nvim_win_hide(opencode_win)
+        else
+          -- Find or create opencode buffer
+          local buf = nil
+          for _, existing_buf in ipairs(vim.api.nvim_list_bufs()) do
+            local buf_name = vim.api.nvim_buf_get_name(existing_buf)
+            if buf_name:match("opencode%-terminal") and vim.bo[existing_buf].buftype == "terminal" then
+              buf = existing_buf
+              break
+            end
+          end
+          
+          if not buf then
+            -- Create new buffer with unique name
+            buf = vim.api.nvim_create_buf(false, true)
+            local timestamp = os.date("%H%M%S")
+            vim.api.nvim_buf_set_name(buf, "opencode-terminal-" .. timestamp)
+          end
+          -- Note: termopen will set buftype to "terminal" automatically
+          
+          -- Create new floating terminal with opencode
+          local ui = vim.api.nvim_list_uis()[1]
+          if not ui then
+            vim.notify("No UI available", vim.log.levels.ERROR)
+            return
+          end
+          local width = math.floor(ui.width * 0.6)
+          local height = math.floor(ui.height * 0.8)
+          local row = math.floor((ui.height - height) / 2)
+          local col = math.floor((ui.width - width) / 2)
+          
+          -- Ensure minimum dimensions
+          width = math.max(width, 20)
+          height = math.max(height, 10)
+          row = math.max(row, 0)
+          col = math.max(col, 0)
+          
+          local win = vim.api.nvim_open_win(buf, true, {
+            relative = "editor",
+            width = width,
+            height = height,
+            row = row,
+            col = col,
+            border = "single",
+            style = "minimal",
+            title = " OpenCode ",
+            title_pos = "center",
+          })
+          
+          local chan = vim.fn.termopen("opencode", {
+            cwd = vim.fn.getcwd(),
+            on_exit = function()
+              vim.schedule(function()
+                if vim.api.nvim_win_is_valid(win) then
+                  vim.api.nvim_win_close(win, true)
+                end
+                if vim.api.nvim_buf_is_valid(buf) then
+                  vim.api.nvim_buf_delete(buf, { force = true })
+                end
+              end)
+            end,
+          })
+          
+          vim.api.nvim_buf_set_var(buf, "terminal_job_id", chan)
+          vim.cmd("startinsert")
+        end
+      end, { desc = "Toggle OpenCode terminal" })
+
+      -- Double ESC handler: single ESC sends to opencode, double ESC exits terminal mode
+      local esc_state = {}
+
+      local function get_state(buf)
+        if not esc_state[buf] then
+          esc_state[buf] = { waiting = false, timer_handle = nil }
+        end
+        return esc_state[buf]
+      end
+
+      local function handle_esc()
+        local buf = vim.api.nvim_get_current_buf()
+        local state = get_state(buf)
+        local esc_timeout = 200
+
+        if state.waiting then
+          -- Second ESC: exit terminal mode
+          state.timer_handle = nil
+          state.waiting = false
+          vim.cmd("stopinsert")
+          return
+        end
+
+        -- First ESC: start timer, send ESC to opencode after timeout
+        state.waiting = true
+        local timer_ref = {}
+        state.timer_handle = timer_ref
+
+        vim.defer_fn(function()
+          if state.timer_handle ~= timer_ref then
+            return
+          end
+          state.waiting = false
+          state.timer_handle = nil
+
+          if vim.api.nvim_buf_is_valid(buf) then
+            local chan = vim.api.nvim_buf_get_var(buf, "terminal_job_id")
+            if chan then
+              vim.api.nvim_chan_send(chan, vim.api.nvim_replace_termcodes("<Esc>", true, false, true))
+            end
+          end
+        end, esc_timeout)
+      end
+
+      -- Normal yank for opencode (no borders to clean up)
+      vim.keymap.set("v", "y", function()
+        local buf = vim.api.nvim_get_current_buf()
+        local buf_name = vim.api.nvim_buf_get_name(buf)
+
+        if buf_name:match("opencode%-terminal") and vim.bo[buf].buftype == "terminal" then
+          vim.cmd("normal! y")
+          vim.notify("Yanked from OpenCode terminal", vim.log.levels.INFO)
+        else
+          vim.cmd("normal! y")
+        end
+      end, { desc = "Yank (normal behavior)" })
+
+      -- Store original dimensions and last position for each buffer
+      local original_dimensions = {}
+      local last_position = {}
+
+      -- Function to resize opencode floating window
+      local function resize_opencode(buf)
+        vim.schedule(function()
+          local win = vim.fn.bufwinid(buf)
+          if win ~= -1 then
+            local config = vim.api.nvim_win_get_config(win)
+            if config.relative ~= "" then
+              local ui = vim.api.nvim_list_uis()[1]
+              local target_height = math.floor(ui.height * 0.8)
+              local target_width = math.floor(ui.width * 0.6)
+              local target_row = math.floor((ui.height - target_height) / 2)
+              local target_col = math.floor((ui.width - target_width) / 2)
+
+              -- Only resize if dimensions or position actually changed
+              local current_row = type(config.row) == "table" and config.row[1] or config.row
+              local current_col = type(config.col) == "table" and config.col[1] or config.col
+
+              if
+                config.height ~= target_height
+                or config.width ~= target_width
+                or current_row ~= target_row
+                or current_col ~= target_col
+              then
+                config.height = target_height
+                config.width = target_width
+                config.row = target_row
+                config.col = target_col
+                vim.api.nvim_win_set_config(win, config)
+
+                -- Store original dimensions by buffer ID
+                original_dimensions[buf] = {
+                  width = config.width,
+                  height = config.height,
+                }
+                
+                -- Store initial centered position by buffer ID
+                last_position[buf] = {
+                  row = target_row,
+                  col = target_col,
+                  width = target_width,
+                  height = target_height,
+                }
+              end
+            end
+          end
+        end)
+      end
+
+      -- Function to move opencode floating window
+      local function move_opencode(direction)
+        local buf = vim.api.nvim_get_current_buf()
+        local win = vim.fn.bufwinid(buf)
+        if win == -1 then
+          return
+        end
+
+        local config = vim.api.nvim_win_get_config(win)
+        if config.relative == "" then
+          return
+        end
+
+        local move_amount = 2
+        local ui = vim.api.nvim_list_uis()[1]
+
+        -- Get current position and dimensions
+        local current_row = type(config.row) == "table" and config.row[1] or config.row
+        local current_col = type(config.col) == "table" and config.col[1] or config.col
+        local current_width = config.width
+        local current_height = config.height
+
+        -- Get original dimensions by buffer ID
+        local orig = original_dimensions[buf] or { width = current_width, height = current_height }
+
+        local new_row = current_row
+        local new_col = current_col
+        local new_width = current_width
+        local new_height = current_height
+
+        -- Check if we're at borders (with small threshold for right/bottom to account for previous moves)
+        local at_left_border = current_col <= 0
+        local at_right_border = current_col + current_width >= ui.width - move_amount
+        local at_top_border = current_row <= 0
+        local at_bottom_border = current_row + current_height >= ui.height - move_amount
+
+        -- Check if next movement would hit border
+        if direction == "h" then
+          -- Moving left: restore width only if NOT at left border and width is shrunk
+          if not at_left_border and current_width < orig.width then
+            -- Restore width progressively (was shrunk by moving right)
+            new_width = math.min(orig.width, current_width + move_amount)
+            new_col = current_col - move_amount
+          elseif at_left_border then
+            -- Already at left border: shrink from left side, stay at border
+            new_width = math.max(10, current_width - move_amount)
+            new_col = 0
+          elseif current_col - move_amount <= 0 then
+            -- Would hit left border: just move to border without shrinking yet
+            new_col = 0
+          else
+            -- Normal movement
+            new_col = current_col - move_amount
+          end
+        elseif direction == "l" then
+          -- Moving right: restore width only if NOT at right border and width is shrunk
+          if not at_right_border and current_width < orig.width then
+            -- Restore width progressively (was shrunk by moving left)
+            new_width = math.min(orig.width, current_width + move_amount)
+            new_col = current_col
+          elseif current_col + current_width + move_amount >= ui.width then
+            -- Would hit right border: shrink from right side, move right to stay at border
+            new_width = math.max(10, current_width - move_amount)
+            new_col = current_col + move_amount
+          else
+            -- Normal movement
+            new_col = current_col + move_amount
+          end
+        elseif direction == "k" then
+          -- Moving up: restore height only if NOT at top border and height is shrunk
+          if not at_top_border and current_height < orig.height then
+            -- Restore height progressively (was shrunk by moving down)
+            new_height = math.min(orig.height, current_height + move_amount)
+            new_row = current_row - move_amount
+          elseif at_top_border then
+            -- Already at top border: shrink from top, stay at border
+            new_height = math.max(5, current_height - move_amount)
+            new_row = 0
+          elseif current_row - move_amount <= 0 then
+            -- Would hit top border: just move to border without shrinking yet
+            new_row = 0
+          else
+            -- Normal movement
+            new_row = current_row - move_amount
+          end
+        elseif direction == "j" then
+          -- Moving down: restore height only if NOT at bottom border and height is shrunk
+          if not at_bottom_border and current_height < orig.height then
+            -- Restore height progressively (was shrunk by moving up)
+            new_height = math.min(orig.height, current_height + move_amount)
+            new_row = current_row
+          elseif current_row + current_height + move_amount >= ui.height then
+            -- Would hit bottom border: shrink from bottom, move down to stay at border
+            new_height = math.max(5, current_height - move_amount)
+            new_row = current_row + move_amount
+          else
+            -- Normal movement
+            new_row = current_row + move_amount
+          end
+        end
+
+        -- Build new config
+        local new_config = {
+          relative = "editor",
+          row = new_row,
+          col = new_col,
+          width = new_width,
+          height = new_height,
+          anchor = config.anchor or "NW",
+          style = config.style,
+          border = config.border,
+          zindex = config.zindex,
+          focusable = config.focusable,
+        }
+
+        pcall(vim.api.nvim_win_set_config, win, new_config)
+        
+        -- Save the current position after moving by buffer ID
+        last_position[buf] = {
+          row = new_row,
+          col = new_col,
+          width = new_width,
+          height = new_height,
+        }
+      end
+
+      -- Set up ESC handler when opencode terminal opens
+      vim.api.nvim_create_autocmd("TermOpen", {
+        pattern = "*opencode-terminal*",
+        callback = function()
+          local buf = vim.api.nvim_get_current_buf()
+          local state = get_state(buf)
+          state.waiting = false
+          state.timer_handle = nil
+
+          vim.keymap.set("t", "<Esc>", handle_esc, {
+            buffer = buf,
+            desc = "Double ESC to exit terminal, single ESC to opencode",
+          })
+
+          -- Keymaps to move the floating window
+          -- Keymaps to move the floating window (terminal mode)
+          vim.keymap.set("t", "<M-h>", function()
+            move_opencode("h")
+          end, { buffer = buf, desc = "Move opencode window left" })
+
+          vim.keymap.set("t", "<M-j>", function()
+            move_opencode("j")
+          end, { buffer = buf, desc = "Move opencode window down" })
+
+          vim.keymap.set("t", "<M-k>", function()
+            move_opencode("k")
+          end, { buffer = buf, desc = "Move opencode window up" })
+
+          vim.keymap.set("t", "<M-l>", function()
+            move_opencode("l")
+          end, { buffer = buf, desc = "Move opencode window right" })
+
+          -- Same keymaps for normal mode
+          vim.keymap.set("n", "<M-h>", function()
+            move_opencode("h")
+          end, { buffer = buf, desc = "Move opencode window left" })
+
+          vim.keymap.set("n", "<M-j>", function()
+            move_opencode("j")
+          end, { buffer = buf, desc = "Move opencode window down" })
+
+          vim.keymap.set("n", "<M-k>", function()
+            move_opencode("k")
+          end, { buffer = buf, desc = "Move opencode window up" })
+
+          vim.keymap.set("n", "<M-l>", function()
+            move_opencode("l")
+          end, { buffer = buf, desc = "Move opencode window right" })
+
+          resize_opencode(buf)
+        end,
+      })
+
+      -- Restore position when opencode window is shown (after hiding and re-showing)
+      vim.api.nvim_create_autocmd("BufWinEnter", {
+        pattern = "*opencode-terminal*",
+        callback = function()
+          local buf = vim.api.nvim_get_current_buf()
+          local win = vim.fn.bufwinid(buf)
+          
+          -- If we have a saved position, restore it
+          if win ~= -1 and last_position[buf] then
+            vim.schedule(function()
+              if vim.api.nvim_win_is_valid(win) then
+                local config = vim.api.nvim_win_get_config(win)
+                if config.relative ~= "" then
+                  local saved = last_position[buf]
+                  config.row = saved.row
+                  config.col = saved.col
+                  config.width = saved.width
+                  config.height = saved.height
+                  pcall(vim.api.nvim_win_set_config, win, config)
+                end
+              end
+            end)
+          else
+            -- No saved position, center it (first time opening)
+            resize_opencode(buf)
+          end
+        end,
+      })
+
+      -- Clean up state on buffer delete
+      vim.api.nvim_create_autocmd("BufDelete", {
+        pattern = "*opencode-terminal*",
+        callback = function(args)
+          esc_state[args.buf] = nil
+          -- Clean up original dimensions and last position by buffer ID
+          original_dimensions[args.buf] = nil
+          last_position[args.buf] = nil
+        end,
+      })
+    end,
+  },
+}

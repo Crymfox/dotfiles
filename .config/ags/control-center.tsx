@@ -1,0 +1,362 @@
+import app from "ags/gtk4/app"
+import { Astal, Gtk, Gdk } from "ags/gtk4"
+import { createBinding, createComputed, createState, For } from "ags"
+import { createPoll, timeout } from "ags/time"
+import { execAsync, exec } from "ags/process"
+import Pango from "gi://Pango"
+import AstalBattery from "gi://AstalBattery"
+import AstalWp from "gi://AstalWp"
+import AstalNetwork from "gi://AstalNetwork"
+import AstalBluetooth from "gi://AstalBluetooth"
+import Brightness from "./services/brightness"
+
+const CLOSE_DELAY = 350
+
+// ─── Toggle helper ──────────────────────────────────────────
+
+export function toggle() {
+  const win = app.get_window("control-center")
+  if (!win) return
+  win.visible = !win.visible
+}
+
+function forceResize() {
+  const win = app.get_window("control-center")
+  if (!win) return
+  timeout(10, () => {
+    win.set_size_request(0, 0)
+    win.queue_resize()
+    win.queue_allocate()
+    // Nudge margin to force layer-shell renegotiation
+    const m = win.marginRight
+    win.marginRight = m + 1
+    timeout(5, () => {
+      if (!win) return
+      win.marginRight = m
+      win.queue_resize()
+    })
+  })
+}
+
+// ─── Header ─────────────────────────────────────────────────
+function Header() {
+  const battery = AstalBattery.get_default()
+  const uptime = createPoll("", 60000, () => {
+    const line = exec("cat /proc/uptime")
+    const mins = Number.parseInt(line.split(".")[0]) / 60
+    if (mins > 18 * 60) return "Go Sleep"
+    const h = Math.floor(mins / 60)
+    const s = Math.floor(mins % 60)
+    return `${h}:${s < 10 ? "0" + s : s}`
+  })
+
+  return (
+    <box class="header" spacing={8}>
+      <label class="uptime" label={uptime((v) => `Uptime ${v}`)} />
+      <box hexpand={true} />
+      <label class="batIconCC" label={String.fromCodePoint(0xF142B)} visible={createBinding(battery, "isPresent")} />
+      <label class="batPercentCC" label={createBinding(battery, "percentage")((p: number) => `${Math.floor((p || 0) * 100)}%`)} visible={createBinding(battery, "isPresent")} />
+      <button onClicked={() => execAsync(["systemctl", "suspend"])} tooltipText="Sleep">
+        <label label={String.fromCodePoint(0xF0FC6)} />
+      </button>
+      <button onClicked={() => execAsync(["systemctl", "poweroff"])} tooltipText="Power Off">
+        <label label={String.fromCodePoint(0xF011)} />
+      </button>
+    </box>
+  )
+}
+
+// ─── Volume Slider ──────────────────────────────────────────
+function VolumeSlider() {
+  const speaker = AstalWp.get_default()?.defaultSpeaker
+  if (!speaker) return <box />
+
+  return (
+    <box>
+      <button>
+        <label label={createBinding(speaker, "mute")(() => {
+          if (speaker.mute) return String.fromCodePoint(0xF0581) // volume_off
+          const v = speaker.volume * 100
+          if (v >= 34) return String.fromCodePoint(0xF057E) // volume_high
+          return String.fromCodePoint(0xF057E) // volume_high (no low icon available)
+        })} />
+      </button>
+      <slider
+        class="volBar"
+        hexpand={true}
+        value={createBinding(speaker, "volume")}
+        onChangeValue={({ value }) => {
+          speaker.set_volume(value)
+          return false
+        }}
+      />
+    </box>
+  )
+}
+
+// ─── Brightness Slider ──────────────────────────────────────
+function BrightnessSlider() {
+  return (
+    <box>
+      <button tooltipText={createBinding(Brightness, "screen")(
+        (v) => `Screen Brightness: ${Math.floor(v * 100)}%`,
+      )}>
+        <label label={String.fromCodePoint(0xF0599)} />
+      </button>
+      <slider
+        hexpand={true}
+        value={createBinding(Brightness, "screen")}
+        onChangeValue={({ value }) => {
+          Brightness.screen = value
+          return false
+        }}
+      />
+    </box>
+  )
+}
+
+// ─── Network Toggle ─────────────────────────────────────────
+
+function NetworkToggle() {
+  const network = AstalNetwork.get_default()
+  let menuBox: Gtk.Box | null = null
+  let parentBox: Gtk.Box | null = null
+
+  const wifiLabel = createComputed(() => {
+    const enabled = createBinding(network, "wifi", "enabled")()
+    if (!enabled) return "Disabled"
+    const state = createBinding(network, "wifi", "state")()
+    if (state >= 40 && state < 100) return "Connecting…"
+    if (state === 100) {
+      const ap = createBinding(network, "wifi", "active-access-point")()
+      if (!ap) return "Connected"
+      const ssid = createBinding(ap, "ssid")()
+      return ssid || "Connected"
+    }
+    return "Not Connected"
+  })
+
+  const wifiClass = createComputed(() => {
+    const enabled = createBinding(network, "wifi", "enabled")()
+    if (!enabled) return "toggle-button disabled"
+    const state = createBinding(network, "wifi", "state")()
+    if (state >= 40 && state < 100) return "toggle-button connecting"
+    return "toggle-button"
+  })
+
+  return (
+    <box
+      $={(self) => { parentBox = self }}
+      orientation={Gtk.Orientation.VERTICAL}
+    >
+      <button
+        class={wifiClass}
+        onClicked={() => {
+          if (network.wifi) network.wifi.enabled = !network.wifi.enabled
+        }}
+        $={(self) => {
+          const gesture = new Gtk.GestureClick()
+          gesture.set_button(3)
+          gesture.connect("pressed", () => {
+            if (!menuBox || !parentBox) return
+            if (menuBox.visible) {
+              parentBox.remove(menuBox)
+              menuBox.visible = false
+              forceResize()
+            } else {
+              parentBox.append(menuBox)
+              menuBox.visible = true
+              forceResize()
+            }
+          })
+          self.add_controller(gesture)
+        }}
+      >
+        <box spacing={8}>
+          <label label={createBinding(network, "wifi", "enabled")((e) =>
+            e ? String.fromCodePoint(0xF05A9) : String.fromCodePoint(0xF05AA)
+          )} />
+          <label
+            hexpand={true}
+            xalign={0}
+            maxWidthChars={14}
+            ellipsize={Pango.EllipsizeMode.END}
+            label={wifiLabel}
+          />
+        </box>
+      </button>
+      <box
+        $={(self) => {
+          menuBox = self
+          timeout(1, () => {
+            menuBox.visible = false
+            const p = menuBox.get_parent()
+            if (p && p !== menuBox) p.remove(menuBox)
+          })
+        }}
+        class="menu"
+        orientation={Gtk.Orientation.VERTICAL}
+      >
+        <For each={createBinding(network, "wifi")((w) => w?.accessPoints || [])}>
+          {(ap) => (
+            <button
+              onClicked={() =>
+                execAsync(`nmcli device wifi connect ${ap.bssid}`).catch(
+                  console.error,
+                )
+              }
+            >
+              <box>
+                <label label={String.fromCodePoint(0xF05A9)} /> {/* wifi */}
+                <label label={ap.ssid || ""} hexpand={true} xalign={0} />
+              </box>
+            </button>
+          )}
+        </For>
+      </box>
+    </box>
+  )
+}
+
+// ─── Bluetooth Toggle ───────────────────────────────────────
+
+function BluetoothToggle() {
+  const bt = AstalBluetooth.get_default()
+  const [connectingVer, setConnectingVer] = createState(0)
+  let menuBox: Gtk.Box | null = null
+  let parentBox: Gtk.Box | null = null
+
+  // Subscribe to per-device connecting changes (bt.devices doesn't fire)
+  function watchConnecting() {
+    bt.devices.forEach((d: any) => {
+      d.connect("notify::connecting", () => setConnectingVer((v: number) => v + 1))
+    })
+  }
+  watchConnecting()
+  bt.connect("notify::devices", watchConnecting)
+
+  const btLabel = createComputed(() => {
+    connectingVer()
+    if (!createBinding(bt, "is-powered")()) return "Disabled"
+    const hasConnected = createBinding(bt, "is-connected")()
+    const devices = createBinding(bt, "devices")()
+    if (hasConnected) {
+      const connected = devices.filter((d: any) => d.connected)
+      if (connected.length === 1) return connected[0].alias || connected[0].name
+      return `${connected.length} Connected`
+    }
+    const connecting = devices.filter((d: any) => d.connecting)
+    if (connecting.length > 0) return "Connecting…"
+    return "Not Connected"
+  })
+
+  return (
+    <box
+      $={(self) => { parentBox = self }}
+      orientation={Gtk.Orientation.VERTICAL}
+    >
+      <button class={createBinding(bt, "is-powered")((p) =>
+          p ? "toggle-button" : "toggle-button disabled"
+        )} onClicked={() => {
+          if (bt.adapter) bt.adapter.powered = !bt.adapter.powered
+        }} $={(self) => {
+          const gesture = new Gtk.GestureClick()
+          gesture.set_button(3)
+          gesture.connect("pressed", () => {
+            if (!menuBox || !parentBox) return
+            if (menuBox.visible) {
+              parentBox.remove(menuBox)
+              menuBox.visible = false
+              forceResize()
+            } else {
+              parentBox.append(menuBox)
+              menuBox.visible = true
+              forceResize()
+            }
+          })
+          self.add_controller(gesture)
+        }}>
+        <box spacing={8}>
+          <label label={createBinding(bt, "is-powered")((p) =>
+            p ? String.fromCodePoint(0xF00AF) : String.fromCodePoint(0xF00B2)
+          )} />
+          <label
+            hexpand={true}
+            xalign={0}
+            maxWidthChars={14}
+            ellipsize={Pango.EllipsizeMode.END}
+            label={btLabel}
+          />
+        </box>
+      </button>
+      <box
+        $={(self) => {
+          menuBox = self
+          timeout(1, () => {
+            menuBox.visible = false
+            const p = menuBox.get_parent()
+            if (p && p !== menuBox) p.remove(menuBox)
+          })
+        }}
+        class="menu"
+        orientation={Gtk.Orientation.VERTICAL}
+      >
+        <For each={createBinding(bt, "devices")}>
+          {(device) => (
+            <button
+              onClicked={() => {
+                if (device.connected) device.disconnect_device(() => {})
+                else device.connect_device(() => {})
+              }}
+            >
+              <box>
+                <label label={String.fromCodePoint(0xF00AF)} /> {/* bluetooth */}
+                <label label={device.name} hexpand={true} xalign={0} />
+              </box>
+            </button>
+          )}
+        </For>
+      </box>
+    </box>
+  )
+}
+
+// ─── Main Control Center ────────────────────────────────────
+export default function ControlCenter() {
+  let win: Astal.Window
+  const { TOP, RIGHT } = Astal.WindowAnchor
+
+  return (
+    <window
+      $={(self) => {
+        win = self
+        const ctrl = new Gtk.EventControllerKey()
+        ctrl.connect("key-pressed", (_ctrl, keyval) => {
+          if (keyval === Gdk.KEY_Escape) toggle()
+        })
+        self.add_controller(ctrl)
+      }}
+      visible={false}
+      name="control-center"
+      namespace="control-center"
+      class="ControlCenter"
+      anchor={TOP | RIGHT}
+      marginRight={8}
+      marginTop={4}
+      application={app}
+      keymode={Astal.Keymode.ON_DEMAND}
+    >
+      <box class="controlcenter" orientation={Gtk.Orientation.VERTICAL}>
+        <Header />
+        <box class="sliders-box" orientation={Gtk.Orientation.VERTICAL}>
+          <VolumeSlider />
+          <BrightnessSlider />
+        </box>
+        <box class="toggles-row" homogeneous={true} spacing={8}>
+          <NetworkToggle />
+          <BluetoothToggle />
+        </box>
+      </box>
+    </window>
+  )
+}

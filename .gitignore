@@ -1,1 +1,6 @@
 .config/fish/.cache
+.aider*
+.config/hypr/hyprland-wiki
+.config/hyprConfigOld
+./ags
+.config/fish/fish_variables

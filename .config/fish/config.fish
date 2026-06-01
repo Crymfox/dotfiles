@@ -64,11 +64,11 @@ if test -d ~/.local/bin
     end
 end
 
-set -Ua fish_user_paths /home/mhiri/.local/share/cargo/bin
+set -Ua fish_user_paths $CARGO_HOME/bin
 fish_add_path -U $CARGO_HOME/bin
 
 # pnpm
-set -gx PNPM_HOME "/home/mhiri/.local/share/pnpm"
+set -gx PNPM_HOME "$HOME/.local/share/pnpm"
 if not string match -q -- $PNPM_HOME $PATH
     set -gx PATH "$PNPM_HOME" $PATH
 end
@@ -129,6 +129,33 @@ source ~/.config/fish/binds.fish
 
 zoxide init fish | source
 thefuck --alias | source
+
+#          ╭──────────────────────────────────────────────────────────╮
+#          │                    Development Tools                     │
+#          ╰──────────────────────────────────────────────────────────╯
+
+# ━━ Android SDK ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+set -gx ANDROID_HOME /opt/android-sdk
+set -gx ANDROID_SDK_ROOT $ANDROID_HOME
+
+fish_add_path \
+    $ANDROID_HOME/cmdline-tools/latest/bin \
+    $ANDROID_HOME/platform-tools \
+    $ANDROID_HOME/emulator \
+    $ANDROID_HOME/tools \
+    $ANDROID_HOME/tools/bin
+
+# ━━ Java ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+set -gx JAVA_HOME /usr/lib/jvm/default
+fish_add_path $JAVA_HOME/bin
+
+# ━━ Flutter (Puro) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fish_add_path \
+    $HOME/.puro/bin \
+    $HOME/.puro/envs/stable/flutter/bin
+
+# ━━ Chrome ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+set -gx CHROME_EXECUTABLE /usr/bin/chromium
 
 if status --is-interactive
     source ("/usr/bin/starship" init fish --print-full-init | psub)
