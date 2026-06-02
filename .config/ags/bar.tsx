@@ -9,7 +9,7 @@ import AstalBattery from "gi://AstalBattery"
 import AstalWp from "gi://AstalWp"
 import AstalMpris from "gi://AstalMpris"
 import AstalNetwork from "gi://AstalNetwork"
-import { toggle as toggleCC } from "./control-center"
+import { toggle as toggleCC, onVisibleChange as onCCVisible } from "./control-center"
 import { toggle as toggleMedia, close as closeMedia } from "./media-window"
 import { toggle as toggleCalendar } from "./calendar"
 
@@ -38,8 +38,12 @@ function Workspaces() {
             }
           }
           update()
-          hypr.connect("notify::focused-workspace", update)
-          hypr.connect("notify::workspaces", update)
+          const id1 = hypr.connect("notify::focused-workspace", update)
+          const id2 = hypr.connect("notify::workspaces", update)
+          onCleanup(() => {
+            hypr.disconnect(id1)
+            hypr.disconnect(id2)
+          })
         }}
       >
         <label class="ws-dot" label="●" />
@@ -204,17 +208,25 @@ function PowerButton() {
 // ─── Control Center Toggle ──────────────────────────────────
 function CCToggle() {
   let icon: Gtk.Label
-  let open = false
+  let disposeVisibleSub: (() => void) | null = null
+
+  function syncIcon() {
+    const cc = app.get_window("control-center")
+    if (cc && icon) icon.label = cc.visible
+      ? String.fromCodePoint(0xF0143) // nf-md-chevron_up
+      : String.fromCodePoint(0xF0142) // nf-md-chevron_right
+  }
 
   return (
     <button
       class="controlCenterButton"
       onClicked={() => {
-        open = !open
         toggleCC()
-        if (icon) icon.label = open
-          ? String.fromCodePoint(0xF0143) // nf-md-chevron_up
-          : String.fromCodePoint(0xF0142) // nf-md-chevron_right
+        syncIcon()
+      }}
+      $={() => {
+        // Subscribe to CC visibility from any source (click, Escape, programmatic)
+        disposeVisibleSub = onCCVisible(() => syncIcon())
       }}
     >
       <label

@@ -1,7 +1,7 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import Gio from "gi://Gio"
-import { createState } from "ags"
+import { createState, onCleanup } from "ags"
 import { createPoll } from "ags/time"
 import { timeout } from "ags/time"
 import { execAsync } from "ags/process"
@@ -30,15 +30,42 @@ export function toggle() {
   }
 }
 
+export function isVisible() {
+  const win = app.get_window("calendar")
+  return win ? win.visible : false
+}
+
+export function onVisibleChange(fn: (visible: boolean) => void): () => void {
+  const win = app.get_window("calendar")
+  if (!win) {
+    const id = timeout(100, () => onVisibleChange(fn))
+    return () => id.destroy()
+  }
+  const id = win.connect("notify::visible", () => fn(win.visible))
+  return () => win.disconnect(id)
+}
+
 // ─── Date & Time ────────────────────────────────────────────
 function DateAndTime() {
-  const dateStr = createPoll("", 1000, "date '+%A, %B %d, %Y'")
-  const timeStr = createPoll("", 1000, "date '+%k:%M:%S'")
+  // Poll runs always but date is cheap — no need to guard visibility
+  const datePoll = createPoll("", 1000, "date '+%A, %B %d, %Y'")
+  const timePoll = createPoll("", 1000, "date '+%k:%M:%S'")
+  const [dateOverlay, setDateOverlay] = createState("")
+  const [timeOverlay, setTimeOverlay] = createState("")
+
+  // Immediately refresh on window open — no delay
+  function refresh() {
+    execAsync("date '+%A, %B %d, %Y'").then((v) => setDateOverlay(v.trim())).catch(console.error)
+    execAsync("date '+%k:%M:%S'").then((v) => setTimeOverlay(v.trim())).catch(console.error)
+  }
 
   return (
-    <box class="date-and-time" orientation={Gtk.Orientation.VERTICAL}>
-      <label class="date" label={dateStr} />
-      <label class="big-clock" label={timeStr} />
+    <box class="date-and-time" orientation={Gtk.Orientation.VERTICAL} $={() => {
+      const sub = onVisibleChange((vis) => { if (vis) refresh() })
+      onCleanup(sub)
+    }}>
+      <label class="date" label={dateOverlay((v) => v || datePoll())} />
+      <label class="big-clock" label={timeOverlay((v) => v || timePoll())} />
     </box>
   )
 }

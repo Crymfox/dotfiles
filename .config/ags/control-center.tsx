@@ -1,6 +1,6 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
-import { createBinding, createComputed, createState, For } from "ags"
+import { createBinding, createComputed, createState, For, onCleanup } from "ags"
 import { createPoll, timeout } from "ags/time"
 import { execAsync, exec } from "ags/process"
 import Pango from "gi://Pango"
@@ -18,6 +18,19 @@ export function toggle() {
   const win = app.get_window("control-center")
   if (!win) return
   win.visible = !win.visible
+}
+
+// Subscribe to visibility changes — fires whenever the CC window is
+// shown/hidden from any source (click, Escape, programmatic toggle).
+// Retries with a short delay if the window hasn't been created yet.
+export function onVisibleChange(fn: (visible: boolean) => void): () => void {
+  const win = app.get_window("control-center")
+  if (!win) {
+    const id = timeout(100, () => onVisibleChange(fn))
+    return () => id.destroy()
+  }
+  const id = win.connect("notify::visible", () => fn(win.visible))
+  return () => win.disconnect(id)
 }
 
 function forceResize() {
@@ -227,13 +240,26 @@ function BluetoothToggle() {
   let parentBox: Gtk.Box | null = null
 
   // Subscribe to per-device connecting changes (bt.devices doesn't fire)
+  // Track signal IDs to disconnect before reconnecting — prevents handler accumulation
+  let deviceSigIds = new WeakMap<any, number>()
   function watchConnecting() {
+    // Disconnect old handlers before reconnecting
     bt.devices.forEach((d: any) => {
-      d.connect("notify::connecting", () => setConnectingVer((v: number) => v + 1))
+      const oldId = deviceSigIds.get(d)
+      if (oldId !== undefined) d.disconnect(oldId)
+      const id = d.connect("notify::connecting", () => setConnectingVer((v: number) => v + 1))
+      deviceSigIds.set(d, id)
     })
   }
   watchConnecting()
-  bt.connect("notify::devices", watchConnecting)
+  const devicesChangedId = bt.connect("notify::devices", watchConnecting)
+  onCleanup(() => {
+    bt.disconnect(devicesChangedId)
+    bt.devices.forEach((d: any) => {
+      const id = deviceSigIds.get(d)
+      if (id !== undefined) d.disconnect(id)
+    })
+  })
 
   const btLabel = createComputed(() => {
     connectingVer()
