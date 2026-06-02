@@ -9,6 +9,7 @@ import AstalBattery from "gi://AstalBattery"
 import AstalWp from "gi://AstalWp"
 import AstalMpris from "gi://AstalMpris"
 import AstalNetwork from "gi://AstalNetwork"
+import GLib from "gi://GLib?version=2.0"
 import { toggle as toggleCC, onVisibleChange as onCCVisible } from "./control-center"
 import { toggle as toggleMedia, close as closeMedia } from "./media-window"
 import { toggle as toggleCalendar } from "./calendar"
@@ -77,7 +78,7 @@ function FocusedWindow() {
 
 // ─── Clock ──────────────────────────────────────────────────
 function Clock() {
-  const time = createPoll("", 1000, "date +%H:%M")
+  const time = createPoll("", 1000, () => GLib.DateTime.new_now_local().format("%H:%M"))
 
   return (
     <button onClicked={toggleCalendar}>
@@ -208,7 +209,6 @@ function PowerButton() {
 // ─── Control Center Toggle ──────────────────────────────────
 function CCToggle() {
   let icon: Gtk.Label
-  let disposeVisibleSub: (() => void) | null = null
 
   function syncIcon() {
     const cc = app.get_window("control-center")
@@ -226,7 +226,7 @@ function CCToggle() {
       }}
       $={() => {
         // Subscribe to CC visibility from any source (click, Escape, programmatic)
-        disposeVisibleSub = onCCVisible(() => syncIcon())
+        onCCVisible(() => syncIcon())
       }}
     >
       <label

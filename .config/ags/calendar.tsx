@@ -1,7 +1,8 @@
 import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import Gio from "gi://Gio"
-import { createState, onCleanup } from "ags"
+import GLib from "gi://GLib?version=2.0"
+import { createState } from "ags"
 import { createPoll } from "ags/time"
 import { timeout } from "ags/time"
 import { execAsync } from "ags/process"
@@ -35,11 +36,15 @@ export function isVisible() {
   return win ? win.visible : false
 }
 
-export function onVisibleChange(fn: (visible: boolean) => void): () => void {
+export function onVisibleChange(fn: (visible: boolean) => void, retries = 50): () => void {
   const win = app.get_window("calendar")
   if (!win) {
-    const id = timeout(100, () => onVisibleChange(fn))
-    return () => id.destroy()
+    if (retries <= 0) return () => {}
+    const timer = timeout(100, () => {
+      timer.cancel()
+      return onVisibleChange(fn, retries - 1)
+    })
+    return () => timer.cancel()
   }
   const id = win.connect("notify::visible", () => fn(win.visible))
   return () => win.disconnect(id)
@@ -47,25 +52,16 @@ export function onVisibleChange(fn: (visible: boolean) => void): () => void {
 
 // ─── Date & Time ────────────────────────────────────────────
 function DateAndTime() {
-  // Poll runs always but date is cheap — no need to guard visibility
-  const datePoll = createPoll("", 1000, "date '+%A, %B %d, %Y'")
-  const timePoll = createPoll("", 1000, "date '+%k:%M:%S'")
-  const [dateOverlay, setDateOverlay] = createState("")
-  const [timeOverlay, setTimeOverlay] = createState("")
-
-  // Immediately refresh on window open — no delay
-  function refresh() {
-    execAsync("date '+%A, %B %d, %Y'").then((v) => setDateOverlay(v.trim())).catch(console.error)
-    execAsync("date '+%k:%M:%S'").then((v) => setTimeOverlay(v.trim())).catch(console.error)
-  }
+  // GLib.DateTime — zero process forks, instant at startup
+  const dateStr = createPoll("", 1000, () =>
+    GLib.DateTime.new_now_local().format("%A, %B %d, %Y"))
+  const timeStr = createPoll("", 1000, () =>
+    GLib.DateTime.new_now_local().format("%-k:%M:%S"))
 
   return (
-    <box class="date-and-time" orientation={Gtk.Orientation.VERTICAL} $={() => {
-      const sub = onVisibleChange((vis) => { if (vis) refresh() })
-      onCleanup(sub)
-    }}>
-      <label class="date" label={dateOverlay((v) => v || datePoll())} />
-      <label class="big-clock" label={timeOverlay((v) => v || timePoll())} />
+    <box class="date-and-time" orientation={Gtk.Orientation.VERTICAL}>
+      <label class="date" label={dateStr} />
+      <label class="big-clock" label={timeStr} />
     </box>
   )
 }
@@ -73,6 +69,7 @@ function DateAndTime() {
 // ─── Cat Image ──────────────────────────────────────────────
 function CatImage() {
   const [imagePath, setImagePath] = createState("")
+  let fetched = false
 
   function fetchImage() {
     setImagePath("") // Revert to placeholder background while loading
@@ -86,11 +83,16 @@ function CatImage() {
       .catch((err) => console.error("Failed to fetch image:", err))
   }
 
-  // Fetch the first image when the widget loads
-  fetchImage()
-
   return (
-    <button onClicked={fetchImage}>
+    <button
+      onClicked={fetchImage}
+      // Defer first fetch to first calendar open — network calls at startup can freeze
+      $={() => {
+        onVisibleChange((vis) => {
+          if (vis && !fetched) { fetched = true; fetchImage() }
+        })
+      }}
+    >
       <box
         class="cat"
         css={imagePath((uri) => uri ? `background-image: url('${uri}');` : "")}

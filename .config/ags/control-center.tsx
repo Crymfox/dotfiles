@@ -2,7 +2,7 @@ import app from "ags/gtk4/app"
 import { Astal, Gtk, Gdk } from "ags/gtk4"
 import { createBinding, createComputed, createState, For, onCleanup } from "ags"
 import { createPoll, timeout } from "ags/time"
-import { execAsync, exec } from "ags/process"
+import { execAsync } from "ags/process"
 import Pango from "gi://Pango"
 import AstalBattery from "gi://AstalBattery"
 import AstalWp from "gi://AstalWp"
@@ -23,11 +23,15 @@ export function toggle() {
 // Subscribe to visibility changes — fires whenever the CC window is
 // shown/hidden from any source (click, Escape, programmatic toggle).
 // Retries with a short delay if the window hasn't been created yet.
-export function onVisibleChange(fn: (visible: boolean) => void): () => void {
+export function onVisibleChange(fn: (visible: boolean) => void, retries = 50): () => void {
   const win = app.get_window("control-center")
   if (!win) {
-    const id = timeout(100, () => onVisibleChange(fn))
-    return () => id.destroy()
+    if (retries <= 0) return () => {}
+    const timer = timeout(100, () => {
+      timer.cancel()
+      return onVisibleChange(fn, retries - 1)
+    })
+    return () => timer.cancel()
   }
   const id = win.connect("notify::visible", () => fn(win.visible))
   return () => win.disconnect(id)
@@ -55,12 +59,15 @@ function forceResize() {
 function Header() {
   const battery = AstalBattery.get_default()
   const uptime = createPoll("", 60000, () => {
-    const line = exec("cat /proc/uptime")
-    const mins = Number.parseInt(line.split(".")[0]) / 60
-    if (mins > 18 * 60) return "Go Sleep"
-    const h = Math.floor(mins / 60)
-    const s = Math.floor(mins % 60)
-    return `${h}:${s < 10 ? "0" + s : s}`
+    // Use execAsync to avoid blocking the GLib main loop
+    // Reading /proc/uptime synchronously at startup was a major freeze cause
+    return execAsync("cat /proc/uptime").then((line) => {
+      const mins = Number.parseInt(line.split(".")[0]) / 60
+      if (mins > 18 * 60) return "Go Sleep"
+      const h = Math.floor(mins / 60)
+      const s = Math.floor(mins % 60)
+      return `${h}:${s < 10 ? "0" + s : s}`
+    }).catch(() => "")
   })
 
   return (
