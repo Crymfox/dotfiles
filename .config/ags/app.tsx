@@ -6,11 +6,15 @@ import Bar from "./bar"
 import ControlCenter from "./control-center"
 import MediaWindow from "./media-window"
 import Calendar from "./calendar"
+import { watchResume } from "./services/resume"
 
 app.start({
   css: style,
   gtkTheme: "Adwaita",
   main() {
+    // Safety net: restart AGS after suspend/resume to fix stale Astal D-Bus proxies
+    watchResume()
+
     const monitors = createBinding(app, "monitors")
 
     return (

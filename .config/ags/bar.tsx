@@ -160,12 +160,14 @@ function BatteryIcon() {
 
   const batIcon = createComputed(() => {
     try {
-      const state = createBinding(battery, "state")()
+      const charging = createBinding(battery, "charging")()
       const pct = createBinding(battery, "percentage")()
-      if (state === 1 || state === 5) return String.fromCodePoint(0x26A1)
-      if (state === 4) return String.fromCodePoint(0xF240)
-      if (pct < 0.15) return String.fromCodePoint(0xF244)
-      return String.fromCodePoint(0xF240)
+      if (charging) return String.fromCodePoint(0x26A1) // ⚡ bolt
+      if (pct < 0.15) return String.fromCodePoint(0xF244) // empty
+      if (pct < 0.40) return String.fromCodePoint(0xF243) // quarter
+      if (pct < 0.70) return String.fromCodePoint(0xF242) // half
+      if (pct < 0.90) return String.fromCodePoint(0xF241) // three quarters
+      return String.fromCodePoint(0xF240) // full
     } catch (_) { return String.fromCodePoint(0xF240) }
   })
 
