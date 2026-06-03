@@ -255,13 +255,24 @@ function BluetoothToggle() {
   // Subscribe to per-device connecting changes (bt.devices doesn't fire)
   // Track signal IDs to disconnect before reconnecting — prevents handler accumulation
   let deviceSigIds = new WeakMap<any, number>()
+  let watchTimer: any = null
+  let debounceConnecting: any = null
   function watchConnecting() {
-    // Disconnect old handlers before reconnecting
-    bt.devices.forEach((d: any) => {
-      const oldId = deviceSigIds.get(d)
-      if (oldId !== undefined) d.disconnect(oldId)
-      const id = d.connect("notify::connecting", () => setConnectingVer((v: number) => v + 1))
-      deviceSigIds.set(d, id)
+    // Debounce: BlueZ fires rapid notify::devices during connection — batch them
+    if (watchTimer) { watchTimer.cancel(); watchTimer = null }
+    watchTimer = timeout(50, () => {
+      watchTimer = null
+      bt.devices.forEach((d: any) => {
+        const oldId = deviceSigIds.get(d)
+        if (oldId !== undefined) d.disconnect(oldId)
+        const id = d.connect("notify::connecting", () => {
+          if (debounceConnecting) { debounceConnecting.cancel() }
+          debounceConnecting = timeout(50, () => {
+            setConnectingVer((v: number) => v + 1)
+          })
+        })
+        deviceSigIds.set(d, id)
+      })
     })
   }
   watchConnecting()
