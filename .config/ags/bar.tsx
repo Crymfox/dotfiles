@@ -60,13 +60,15 @@ function FocusedWindow() {
   const hypr = AstalHyprland.get_default()
 
   const clientTitle = createComputed(() => {
-    const client = createBinding(hypr, "focusedClient")()
-    if (!client) return ""
-    return createBinding(client, "title")() || ""
+    try {
+      const client = createBinding(hypr, "focusedClient")()
+      if (!client) return ""
+      return createBinding(client, "title")() || ""
+    } catch (_) { return "" }
   })
 
   return (
-    <box class="focusedTitle" visible={createComputed(() => !!createBinding(hypr, "focusedClient")())}>
+    <box class="focusedTitle" visible={createComputed(() => { try { return !!createBinding(hypr, "focusedClient")() } catch (_) { return false } })}>
       <label
         label={clientTitle}
         maxWidthChars={40}
@@ -108,9 +110,11 @@ function MiniMedia() {
       <For each={createBinding(mpris, "players")}>
         {(player: any) => {
           const nowPlaying = createComputed(() => {
-            const t = createBinding(player, "title")()
-            const a = createBinding(player, "artist")()
-            return t ? `${a ? a + " - " : ""}${t}` : ""
+            try {
+              const t = createBinding(player, "title")()
+              const a = createBinding(player, "artist")()
+              return t ? `${a ? a + " - " : ""}${t}` : ""
+            } catch (_) { return "" }
           })
           return (
             <button onClicked={toggleMedia} visible={createBinding(player, "title")((t: string) => !!t)}>
@@ -155,17 +159,21 @@ function BatteryIcon() {
   const battery = AstalBattery.get_default()
 
   const batIcon = createComputed(() => {
-    const state = createBinding(battery, "state")()
-    const pct = createBinding(battery, "percentage")()
-    if (state === 1 || state === 5) return String.fromCodePoint(0x26A1) // ⚡ lightning bolt (charging)
-    if (state === 4) return String.fromCodePoint(0xF240) // battery full (charged)
-    if (pct < 0.15) return String.fromCodePoint(0xF244) // battery empty (low)
-    return String.fromCodePoint(0xF240) // battery
+    try {
+      const state = createBinding(battery, "state")()
+      const pct = createBinding(battery, "percentage")()
+      if (state === 1 || state === 5) return String.fromCodePoint(0x26A1)
+      if (state === 4) return String.fromCodePoint(0xF240)
+      if (pct < 0.15) return String.fromCodePoint(0xF244)
+      return String.fromCodePoint(0xF240)
+    } catch (_) { return String.fromCodePoint(0xF240) }
   })
 
   const batPct = createComputed(() => {
-    const pct = createBinding(battery, "percentage")()
-    return `${Math.floor((pct || 0) * 100)}%`
+    try {
+      const pct = createBinding(battery, "percentage")()
+      return `${Math.floor((pct || 0) * 100)}%`
+    } catch (_) { return "0%" }
   })
 
   return (

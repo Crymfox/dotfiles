@@ -135,6 +135,12 @@ function BrightnessSlider() {
   )
 }
 
+// Safe wrapper: prevents a single getter crash from silently killing
+// the entire createComputed (gnim doesn't recover from compute errors)
+function safe<T>(fn: () => T, fallback: T): T {
+  try { return fn() } catch (_) { return fallback }
+}
+
 // ─── Network Toggle ─────────────────────────────────────────
 
 function NetworkToggle() {
@@ -142,7 +148,7 @@ function NetworkToggle() {
   let menuBox: Gtk.Box | null = null
   let parentBox: Gtk.Box | null = null
 
-  const wifiLabel = createComputed(() => {
+  const wifiLabel = createComputed(() => safe(() => {
     const enabled = createBinding(network, "wifi", "enabled")()
     if (!enabled) return "Disabled"
     const state = createBinding(network, "wifi", "state")()
@@ -154,15 +160,15 @@ function NetworkToggle() {
       return ssid || "Connected"
     }
     return "Not Connected"
-  })
+  }, "Not Connected"))
 
-  const wifiClass = createComputed(() => {
+  const wifiClass = createComputed(() => safe(() => {
     const enabled = createBinding(network, "wifi", "enabled")()
     if (!enabled) return "toggle-button disabled"
     const state = createBinding(network, "wifi", "state")()
     if (state >= 40 && state < 100) return "toggle-button connecting"
     return "toggle-button"
-  })
+  }, "toggle-button"))
 
   return (
     <box
@@ -268,7 +274,7 @@ function BluetoothToggle() {
     })
   })
 
-  const btLabel = createComputed(() => {
+  const btLabel = createComputed(() => safe(() => {
     connectingVer()
     if (!createBinding(bt, "is-powered")()) return "Disabled"
     const hasConnected = createBinding(bt, "is-connected")()
@@ -281,7 +287,7 @@ function BluetoothToggle() {
     const connecting = devices.filter((d: any) => d.connecting)
     if (connecting.length > 0) return "Connecting…"
     return "Not Connected"
-  })
+  }, "Not Connected"))
 
   return (
     <box
