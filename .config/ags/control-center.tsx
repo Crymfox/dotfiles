@@ -9,6 +9,7 @@ import AstalWp from "gi://AstalWp"
 import AstalNetwork from "gi://AstalNetwork"
 import AstalBluetooth from "gi://AstalBluetooth"
 import Brightness from "./services/brightness"
+import GLib from "gi://GLib?version=2.0"
 
 const CLOSE_DELAY = 350
 
@@ -136,9 +137,17 @@ function BrightnessSlider() {
 }
 
 // Safe wrapper: prevents a single getter crash from silently killing
-// the entire createComputed (gnim doesn't recover from compute errors)
+// the entire createComputed (gnim doesn't recover from compute errors).
+// Also yields the main loop before each access to process pending
+// D-Bus worker callbacks — prevents stale proxy blocking after resume.
 function safe<T>(fn: () => T, fallback: T): T {
-  try { return fn() } catch (_) { return fallback }
+  try {
+    // Process any pending D-Bus worker responses before accessing Astal proxies.
+    // Without this, a stale proxy triggers a blocking sync D-Bus call that
+    // freezes the entire main loop (S-state, futex_wait).
+    GLib.main_context_default().iteration(false)
+    return fn()
+  } catch (_) { return fallback }
 }
 
 // ─── Network Toggle ─────────────────────────────────────────

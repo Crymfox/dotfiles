@@ -61,6 +61,7 @@ function FocusedWindow() {
 
   const clientTitle = createComputed(() => {
     try {
+      GLib.main_context_default().iteration(false)
       const client = createBinding(hypr, "focusedClient")()
       if (!client) return ""
       return createBinding(client, "title")() || ""
@@ -68,7 +69,7 @@ function FocusedWindow() {
   })
 
   return (
-    <box class="focusedTitle" visible={createComputed(() => { try { return !!createBinding(hypr, "focusedClient")() } catch (_) { return false } })}>
+    <box class="focusedTitle" visible={createComputed(() => { try { GLib.main_context_default().iteration(false); return !!createBinding(hypr, "focusedClient")() } catch (_) { return false } })}>
       <label
         label={clientTitle}
         maxWidthChars={40}
@@ -111,6 +112,7 @@ function MiniMedia() {
         {(player: any) => {
           const nowPlaying = createComputed(() => {
             try {
+              GLib.main_context_default().iteration(false)
               const t = createBinding(player, "title")()
               const a = createBinding(player, "artist")()
               return t ? `${a ? a + " - " : ""}${t}` : ""
@@ -160,6 +162,7 @@ function BatteryIcon() {
 
   const batIcon = createComputed(() => {
     try {
+      GLib.main_context_default().iteration(false)
       const charging = createBinding(battery, "charging")()
       const pct = createBinding(battery, "percentage")()
       if (charging) return String.fromCodePoint(0x26A1) // ⚡ bolt
@@ -173,6 +176,7 @@ function BatteryIcon() {
 
   const batPct = createComputed(() => {
     try {
+      GLib.main_context_default().iteration(false)
       const pct = createBinding(battery, "percentage")()
       return `${Math.floor((pct || 0) * 100)}%`
     } catch (_) { return "0%" }
