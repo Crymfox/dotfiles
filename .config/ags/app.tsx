@@ -7,11 +7,16 @@ import ControlCenter from "./control-center"
 import MediaWindow from "./media-window"
 import Calendar from "./calendar"
 import { watchResume } from "./services/resume"
+import GLib from "gi://GLib?version=2.0"
 
 app.start({
   css: style,
   gtkTheme: "Adwaita",
   main() {
+    // Heartbeat: separate GLib source that keeps the main loop responsive.
+    // Without it, a blocked createPoll callback can stall the entire UI.
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => GLib.SOURCE_CONTINUE)
+
     // Safety net: restart AGS after suspend/resume to fix stale Astal D-Bus proxies
     watchResume()
 
