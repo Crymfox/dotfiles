@@ -13,9 +13,13 @@ app.start({
   css: style,
   gtkTheme: "Adwaita",
   main() {
-    // Heartbeat: separate GLib source that keeps the main loop responsive.
-    // Without it, a blocked createPoll callback can stall the entire UI.
-    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => GLib.SOURCE_CONTINUE)
+    // Heartbeat: regularly yield the main loop so pending D-Bus worker responses
+    // get processed. Without explicit yields, synchronous Astal property accesses
+    // can block waiting for proxy connection setup.
+    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+      GLib.main_context_default().iteration(false)
+      return GLib.SOURCE_CONTINUE
+    })
 
     // Safety net: restart AGS after suspend/resume to fix stale Astal D-Bus proxies
     watchResume()
