@@ -1,4 +1,3 @@
-
 #          ╭──────────────────────────────────────────────────────────╮
 #          │                      Env Variables                       │
 #          ╰──────────────────────────────────────────────────────────╯
@@ -24,12 +23,11 @@ end
 set -U __done_min_cmd_duration 10000
 set -U __done_notification_urgency_level low
 
-
 # ━━ Environment setup ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Apply .profile: use this to put fish compatible .profile stuff in
-if test -f ~/.fish_profile
-    source ~/.fish_profile
-end
+# if test -f ~/.fish_profile
+#     source ~/.fish_profile
+# end
 
 set -x XDG_DATA_HOME $HOME/.local/share
 set -x XDG_CONFIG_HOME $HOME/.config
@@ -88,7 +86,6 @@ set cf $XDG_CONFIG_HOME
 set cm_conf $XDG_CONFIG_HOME/chezmoi/chezmoi.toml
 set cm_data $XDG_DATA_HOME/chezmoi
 
-
 # ━━ Functions needed for !! and !$ https://github.com/oh-my-fish/plugin-bang-bang ━━
 function __history_previous_command
     switch (commandline -t)
@@ -118,14 +115,12 @@ else
     bind '$' __history_previous_command_arguments
 end
 
-
 source ~/.config/fish/alias.fish
 source ~/.config/fish/binds.fish
 
 #          ╭──────────────────────────────────────────────────────────╮
 #          │                           init                           │
 #          ╰──────────────────────────────────────────────────────────╯
-
 
 zoxide init fish | source
 thefuck --alias | source
@@ -158,11 +153,20 @@ fish_add_path \
 set -gx CHROME_EXECUTABLE /usr/bin/chromium
 
 if status --is-interactive
-    source ("/usr/bin/starship" init fish --print-full-init | psub)
+    # Cache starship init - regenerate only when starship binary or config changes
+    set cache ~/.cache/starship_init.fish
+    if not test -f $cache; or test (command -v starship) -nt $cache; or test ~/.config/starship.toml -nt $cache
+        starship init fish --print-full-init >$cache
+    end
+    source $cache
+
     if test -x /usr/bin/neofetch
         neofetch --ascii_colors 6 6 2 2 2 2
     end
 end
+
+# fnm - fast node version manager (replaces nvm/OMF)
+fnm env --shell fish | source
 
 source ~/.config/fish/current_theme.fish
 fish_vi_key_bindings
