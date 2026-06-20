@@ -15,7 +15,8 @@ hl.env("QT_QPA_PLATFORMTHEME", "qt5ct")
 hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
 hl.env("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
 hl.env("GDK_BACKEND", "wayland,x11,*")
-hl.env("XCURSOR_SIZE", "24")
+hl.env("HYPRCURSOR_THEME", "Yellow-Banana")
+hl.env("HYPRCURSOR_SIZE", "64")
 
 -- NOTE: NVIDIA env vars removed - they conflict with Chromium's Wayland backend
 -- on this dual-GPU (Intel + NVIDIA) system. GBM_BACKEND=nvidia-drm in particular
@@ -25,6 +26,10 @@ hl.env("XCURSOR_SIZE", "24")
 -- hl.env("GBM_BACKEND", "nvidia-drm")
 -- hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "wayland")
+
+-- Force GTK4 to use OpenGL renderer — Vulkan (vkGetFenceStatus) crashes
+-- on Intel+NVIDIA dual-GPU when power state changes (e.g. charger plug).
+hl.env("GSK_RENDERER", "opengl")
 
 -- ==========================================
 -- Monitors
@@ -142,7 +147,7 @@ hl.on("hyprland.start", function()
 	hl.exec_cmd("nm-applet --indicator")
 	hl.exec_cmd("awww-daemon")
 	hl.exec_cmd("blueman-applet")
-	hl.exec_cmd("ags run")
+	hl.exec_cmd("ags run --log-file /tmp/ags.log")
 	hl.exec_cmd("mako")
 	hl.exec_cmd("nohup wl-paste --type text --watch cliphist store > /dev/null 2>&1 &")
 	hl.exec_cmd("nohup wl-paste --type image --watch cliphist store > /dev/null 2>&1 &")
@@ -184,7 +189,7 @@ hl.window_rule({
 -- hl.window_rule({ name = "float_op", match = { float = true }, opacity_active = 0.90, opacity_inactive = 0.90 }) -- deprecated
 
 -- Blur Rules (from previous config)
-local blurred_apps = { "alacritty", "rofi", "nemo", "foot" }
+local blurred_apps = { "kitty", "rofi", "nemo", "foot" }
 for _, app in ipairs(blurred_apps) do
 	-- hl.window_rule({ name = "blur_" .. app, match = { class = app }, blur = true }) -- deprecated
 end
@@ -212,22 +217,22 @@ hl.window_rule({ name = "submap_center", match = { title = "submap" }, float = t
 local mainMod = "SUPER"
 
 -- Applications
-hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd("~/scripts/launch.fish terminal"))
-hl.bind(mainMod .. " + KP_Enter", hl.dsp.exec_cmd("~/scripts/launch.fish terminal"))
-hl.bind(mainMod .. " + CTRL + Return", hl.dsp.exec_cmd("~/scripts/launch.fish terminal2"))
-hl.bind(mainMod .. " + CTRL + KP_Enter", hl.dsp.exec_cmd("~/scripts/launch.fish terminal2"))
-hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("~/scripts/launch.fish terminal2"))
+hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd("~/scripts/launch.sh terminal"))
+hl.bind(mainMod .. " + KP_Enter", hl.dsp.exec_cmd("~/scripts/launch.sh terminal"))
+hl.bind(mainMod .. " + CTRL + Return", hl.dsp.exec_cmd("~/scripts/launch.sh terminal2"))
+hl.bind(mainMod .. " + CTRL + KP_Enter", hl.dsp.exec_cmd("~/scripts/launch.sh terminal2"))
+hl.bind(mainMod .. " + T", hl.dsp.exec_cmd("~/scripts/launch.sh terminal2"))
 hl.bind(mainMod .. " + CTRL + T", hl.dsp.exec_cmd("tmux"))
-hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("hyprctl dispatch workspace 2 && ~/scripts/launch.fish vivaldi"))
-hl.bind(mainMod .. " + E", hl.dsp.exec_cmd("~/scripts/launch.fish filesgui"))
+hl.bind(mainMod .. " + B", hl.dsp.exec_cmd("hyprctl dispatch workspace 2 && ~/scripts/launch.sh browser"))
+hl.bind(mainMod .. " + E", hl.dsp.exec_cmd("~/scripts/launch.sh filesgui"))
 hl.bind(mainMod .. " + SHIFT + T", hl.dsp.exec_cmd("hyprctl dispatch workspace 5 && telegram-desktop"))
-hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("~/scripts/launch.fish rofi"))
-hl.bind(mainMod .. " + KP_Add", hl.dsp.exec_cmd("~/scripts/launch.fish rofi"))
-hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("~/scripts/launch.fish dmenu"))
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd("~/scripts/launch.sh rofi"))
+hl.bind(mainMod .. " + KP_Add", hl.dsp.exec_cmd("~/scripts/launch.sh rofi"))
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("~/scripts/launch.sh dmenu"))
 
 -- Utilities & Session
 hl.bind(mainMod .. " + SHIFT + equal", hl.dsp.exec_cmd("hyprpicker -a"))
-hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("~/scripts/launch.fish clipboard"))
+hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("~/scripts/launch.sh clipboard"))
 hl.bind("print", hl.dsp.exec_cmd("hyprshot -m output"))
 hl.bind("CTRL + print", hl.dsp.exec_cmd("hyprshot -m region"))
 hl.bind("SHIFT + print", hl.dsp.exec_cmd("hyprshot -m window"))
@@ -252,8 +257,14 @@ end)
 -- Focus Movement (Vim & Arrows)
 local dirs = { h = "l", l = "r", k = "u", j = "d", left = "l", right = "r", up = "u", down = "d" }
 local resize_vals = {
-	h = { x = -10, y = 0 }, l = { x = 10, y = 0 }, k = { x = 0, y = -10 }, j = { x = 0, y = 10 },
-	left = { x = -10, y = 0 }, right = { x = 10, y = 0 }, up = { x = 0, y = -10 }, down = { x = 0, y = 10 },
+	h = { x = -10, y = 0 },
+	l = { x = 10, y = 0 },
+	k = { x = 0, y = -10 },
+	j = { x = 0, y = 10 },
+	left = { x = -10, y = 0 },
+	right = { x = 10, y = 0 },
+	up = { x = 0, y = -10 },
+	down = { x = 0, y = 10 },
 }
 for key, dir in pairs(dirs) do
 	hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ direction = dir }))
