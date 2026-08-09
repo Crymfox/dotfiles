@@ -1,6 +1,11 @@
-.config/fish/.cache
+# Aider artifacts
 .aider*
-.config/hypr/hyprland-wiki
-.config/hyprConfigOld
-./ags
-.config/fish/fish_variables
+
+# Hyprland wiki cache
+/hypr/.config/hypr/hyprland-wiki
+
+# Fish variables (contains API keys)
+/fish/.config/fish/fish_variables*
+
+# Migration script
+/stow-migrate.sh

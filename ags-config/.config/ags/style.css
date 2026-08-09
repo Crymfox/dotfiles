@@ -1,0 +1,591 @@
+/*
+ * Catppuccin Mocha palette
+ */
+@define-color base #24273a;
+@define-color base-transparent alpha(#24273a, 0.8);
+@define-color mantle #1e2030;
+@define-color crust #181926;
+@define-color crust-transparent alpha(#181926, 0.5);
+@define-color text #cad3f5;
+@define-color subtext0 #a5adcb;
+@define-color subtext1 #b8c0e0;
+@define-color surface0 #363a4f;
+@define-color surface1 #494d64;
+@define-color surface2 #5b6078;
+@define-color overlay0 #6e738d;
+@define-color overlay1 #8087a2;
+@define-color overlay2 #939ab7;
+@define-color blue #8aadf4;
+@define-color lavender #b7bdf8;
+@define-color sapphire #7dc4e4;
+@define-color sky #91d7e3;
+@define-color teal #8bd5ca;
+@define-color green #a6da95;
+@define-color yellow #eed49f;
+@define-color peach #f5a97f;
+@define-color maroon #ee99a0;
+@define-color red #ed8796;
+@define-color mauve #c6a0f6;
+@define-color pink #f5bde6;
+@define-color flamingo #f0c6c6;
+@define-color rosewater #f4dbd6;
+
+/* Global */
+label {
+  font-weight: bold;
+  font-family: "Ubuntu Nerd Font";
+  font-size: 12pt;
+}
+
+/* Bar */
+window.Bar {
+  background: transparent;
+}
+
+window.Bar>box {
+  background-color: @base-transparent;
+  border-radius: 24px;
+  min-height: 44px;
+  margin: 5px 5px 0 5px;
+  padding: 0 0px;
+}
+
+window.Bar>box>box {
+  margin: 0 0px;
+}
+
+/* Remove default GTK button styling for all bar buttons */
+window.Bar button {
+  background: none;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0;
+}
+
+window.Bar button:hover {
+  background: none;
+}
+
+window.Bar button:active {
+  background: none;
+}
+
+.rightBox {
+  background-color: @crust-transparent;
+  color: @text;
+  margin: 4px;
+  padding: 0 10px;
+  border-radius: 24px;
+  font-weight: bolder;
+}
+
+.clock {
+  background-color: @crust-transparent;
+  color: @text;
+  margin: 4px;
+  padding: 0 14px;
+  border-radius: 24px;
+  font-weight: bolder;
+}
+
+.focusedTitle {
+  background-color: @crust-transparent;
+  color: @blue;
+  margin: 4px;
+  padding: 0 12px;
+  border-radius: 24px;
+}
+
+.focusedTitle label {
+  font-size: 14px;
+  font-weight: bolder;
+}
+
+/* Workspaces — dot indicators */
+.workspaces {
+  background-color: @crust-transparent;
+  margin: 4px;
+  padding: 0 6px;
+  padding-top: 2px;
+  border-radius: 24px;
+}
+
+/* Invisible clickable area */
+.workspaces button {
+  padding: 6px;
+  margin: 0 4px;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+/* Visual dot — bullet character */
+.ws-dot {
+  font-size: 18pt;
+  color: @overlay0;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.workspaces button.active .ws-dot {
+  color: @overlay1;
+}
+
+.workspaces button.focused .ws-dot {
+  color: @blue;
+}
+
+.workspaces button:hover .ws-dot {
+  color: @text;
+}
+
+/* Power button */
+.powerButton {
+  font-size: 14pt;
+  margin: 0 4px;
+  padding: 4px;
+  color: @maroon;
+  border-radius: 100px;
+  min-width: 28px;
+  min-height: 28px;
+}
+
+
+/* Control center toggle */
+.controlCenterButton {
+  margin: 0 4px;
+  padding: 4px;
+  border-radius: 100px;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.controlCenterButton label {
+  font-size: 18pt;
+}
+
+
+/* Battery icon */
+.batIcon {
+  font-size: 14pt;
+  margin: 0 4px;
+  padding: 4px;
+}
+
+/* Volume icon */
+.volIcon {
+  margin: 0 4px;
+  padding: 4px;
+  font-size: 14pt;
+}
+
+/* Network icon */
+.netIcon {
+  margin: 0 4px;
+  padding: 4px;
+  font-size: 14pt;
+}
+
+/* Volume slider */
+.volBar {
+  min-width: 60px;
+}
+
+.volBar trough {
+  background-color: @surface0;
+  border-radius: 1rem;
+  min-height: 6px;
+}
+
+.volBar trough highlight {
+  background-color: @blue;
+  border-radius: 1rem;
+  min-height: 6px;
+}
+
+/* Battery percent */
+.batPercent {
+  font-size: 10pt;
+  color: @subtext0;
+}
+
+.battery {
+  border-radius: 100px;
+  padding: 0 4px;
+}
+
+
+/* Player icon */
+.player-icon {
+  font-size: 14pt;
+  margin: 0 4px;
+}
+
+/* Now playing label */
+.now-playing {
+  font-size: 10pt;
+  color: @subtext0;
+  margin: 0 4px;
+}
+
+.mini-media {
+  background-color: @crust-transparent;
+  margin: 4px;
+  padding: 0 8px;
+  border-radius: 24px;
+}
+
+.mini-media button {
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 100px;
+  padding: 0 8px;
+  margin: 0 2px;
+}
+
+/* === Control Center === */
+window.ControlCenter {
+  background: transparent;
+}
+
+.controlcenter {
+  background-color: @base;
+  border: 1px solid @surface1;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.controlcenter .header {
+  /* background removed intentionally — only buttons should be styled */
+  margin-bottom: 12px;
+}
+
+.controlcenter .header .uptime {
+  font-size: 10pt;
+  color: @subtext0;
+}
+
+.controlcenter .header .batIconCC {
+  font-size: 12pt;
+  margin-right: 2px;
+  color: @subtext0;
+}
+
+.controlcenter .header .batPercentCC {
+  font-size: 10pt;
+  color: @subtext0;
+  margin-right: 4px;
+}
+
+.controlcenter .header button {
+  background: #2a3d70;
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+  min-width: 32px;
+  min-height: 32px;
+  font-size: 14pt;
+  padding: 4px;
+}
+
+.controlcenter .header button:hover {
+  background: #3d5aa8;
+}
+
+/* Sliders */
+.sliders-box {
+  margin-bottom: 8px;
+}
+
+.sliders-box box {
+  margin: 4px 0;
+}
+
+.sliders-box button {
+  background: none;
+  border: none;
+  padding: 4px;
+  font-size: 14pt;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.sliders-box trough {
+  background-color: @surface0;
+  border-radius: 8px;
+  min-height: 6px;
+}
+
+.sliders-box trough highlight {
+  background-color: @blue;
+  border-radius: 8px;
+  min-height: 6px;
+}
+
+.sliders-box slider {
+  background-color: @blue;
+  border: 2px solid @base;
+  border-radius: 50%;
+  min-width: 16px;
+  min-height: 16px;
+  box-shadow: none;
+}
+
+/* Toggle buttons (WiFi / BT) */
+.toggle-button {
+  background: #2a3d70;
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 10px 12px;
+}
+
+.toggle-button:hover {
+  background: #3d5aa8;
+}
+
+.toggle-button.disabled {
+  background: #1e2d42;
+  opacity: 0.55;
+}
+
+.toggle-button.disabled label {
+  color: @subtext0;
+}
+
+.toggle-button.connecting {
+  background: #2a3d70;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.toggle-button label {
+  color: @text;
+  font-size: 12pt;
+}
+
+/* Toggles row */
+.toggles-row {
+  margin-top: 4px;
+}
+
+/* WiFi / BT expandable menus */
+.menu {
+  background-color: #1a2438;
+  border: 1px solid #2a3d70;
+  border-radius: 12px;
+  padding: 8px;
+  margin-top: 4px;
+}
+
+.menu button {
+  background: #24345c;
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+  padding: 8px 12px;
+  margin: 2px 0;
+}
+
+.menu button:hover {
+  background: #3d5aa8;
+}
+
+.menu button label {
+  color: @text;
+}
+
+/* === Media Window === */
+window.MediaWindow {
+  background: transparent;
+}
+
+/* Remove default GTK button styling for media window */
+window.MediaWindow button {
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+window.MediaWindow button:hover {
+  background: none;
+}
+
+.media-window {
+  background-color: @base;
+  border: 1px solid @surface1;
+  border-radius: 16px;
+  padding: 16px;
+  margin: 4px;
+  min-width: 300px;
+}
+
+.track-info {
+  padding: 8px 0;
+}
+
+.track-name {
+  font-size: 14pt;
+  font-weight: bold;
+}
+
+.artist-name {
+  font-size: 11pt;
+  color: @subtext0;
+}
+
+.cover-art {
+  min-width: 260px;
+  min-height: 200px;
+  border-radius: 12px;
+  background-color: @surface0;
+  background-size: cover;
+  background-position: center;
+  margin: 0;
+}
+
+.position-slider {
+  min-width: 250px;
+}
+
+.position-slider trough {
+  background-color: @surface0;
+  border-radius: 8px;
+  min-height: 6px;
+}
+
+.position-slider trough highlight {
+  background-color: @blue;
+  border-radius: 8px;
+}
+
+.position-slider slider {
+  background-color: @blue;
+  border: 2px solid @base;
+  border-radius: 50%;
+  min-width: 12px;
+  min-height: 12px;
+  box-shadow: none;
+}
+
+.position-label {
+  font-size: 10pt;
+  color: @subtext0;
+}
+
+.media-controls button {
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 100px;
+  padding: 0;
+  margin: 0 4px;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.media-controls button:hover {
+  background-color: @surface0;
+}
+
+.media-controls button:active {
+  background-color: @surface1;
+}
+
+.media-controls button.play-pause {
+  background-color: @blue;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.media-controls button.play-pause:hover {
+  background-color: @sapphire;
+}
+
+.media-controls button.play-pause image {
+  color: @crust;
+}
+
+.media-controls button image {
+  -gtk-icon-transform: translate(0, 0);
+}
+
+/* === Calendar Window === */
+window.Calendar {
+  background: transparent;
+}
+
+.calendar-window {
+  background-color: @base;
+  border: 1px solid @surface1;
+  border-radius: 16px;
+  padding: 16px;
+  margin: 4px;
+}
+
+.date-and-time {
+  padding: 8px;
+}
+
+.date {
+  font-size: 11pt;
+  color: @subtext0;
+}
+
+.big-clock {
+  font-size: 24pt;
+  font-weight: bold;
+}
+
+.cat {
+  min-width: 250px;
+  min-height: 200px;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+  background-color: @surface0;
+  margin: 8px 0;
+}
+
+window.Calendar button {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.calendar-container {
+  padding: 4px;
+}
+
+calendar {
+  background-color: @surface0;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+calendar:selected {
+  background-color: @blue;
+  color: @crust;
+  border-radius: 50px;
+}
+
+calendar button {
+  color: @blue;
+  border-radius: 8px;
+}
+
+calendar button:hover {
+  background-color: @surface1;
+}
+
+calendar:indeterminate {
+  color: @overlay0;
+}
+
+calendar.highlight {
+  color: @blue;
+}

@@ -1,0 +1,5 @@
+# Aider artifacts
+^\.aider
+
+# This migration script
+^stow-migrate\.sh$
