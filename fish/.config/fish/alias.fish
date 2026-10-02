@@ -1,7 +1,7 @@
 # ls > eza
 if test -x /usr/bin/eza
     alias ls 'eza -al --color=always --group-directories-first --icons auto' # preferred listing
-    alias la 'eza -a --color=always --group-directories-first --icons auto' # all files and dirs
+    alias la 'eza -a --color=always --group-directories-first' # all files and dirs
     alias ll 'eza -l --color=always --group-directories-first --icons auto' # long format
     alias lt 'eza -aT --color=always --group-directories-first --icons auto' # tree listing
     alias l. 'eza -ald --color=always --group-directories-first --icons auto .*' # show only dotfiles
