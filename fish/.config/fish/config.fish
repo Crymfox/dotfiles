@@ -7,6 +7,7 @@
 set fish_greeting
 set VIRTUAL_ENV_DISABLE_PROMPT 1
 set -x MANPAGER "sh -c 'col -bx | bat -l man -p'"
+set -x MANROFFOPT -c
 set -x SHELL /usr/bin/fish
 
 set -x QT_QPA_PLATFORMTHEME qt5ct
