@@ -114,7 +114,8 @@ function MiniMedia() {
             safe(() => {
               const t = createBinding(player, "title")()
               const a = createBinding(player, "artist")()
-              return t ? `${a ? a + " - " : ""}${t}` : ""
+              const raw = t ? `${a ? a + " - " : ""}${t}` : ""
+              return raw.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim()
             }, "")
           )
           return (
@@ -127,8 +128,9 @@ function MiniMedia() {
                 <label
                   class="now-playing"
                   label={nowPlaying}
-                  maxWidthChars={75}
+                  maxWidthChars={30}
                   ellipsize={Pango.EllipsizeMode.END}
+                  singleLineMode={true}
                 />
               </box>
             </button>
