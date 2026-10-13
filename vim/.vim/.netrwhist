@@ -1,0 +1,12 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhistcnt =3
+let g:netrw_dirhist_3='/home/crymfox/dotfiles/vim/.vim'
+let g:netrw_dirhist_2='/home/crymfox'
+let g:netrw_dirhist_1='/home/crymfox/.vim'
+let g:netrw_dirhist_0='/home/crymfox/wsl/typing'
+let g:netrw_dirhist_9='/home/crymfox/dotfiles/nvim/.config/nvim/lua/plugins'
+let g:netrw_dirhist_8='/home/crymfox/dotfiles/nvim/.config/nvim/lua'
+let g:netrw_dirhist_7='/home/crymfox/dotfiles/nvim/.config/nvim/lua/config'
+let g:netrw_dirhist_6='/home/crymfox/dotfiles/nvim/.config/nvim/lua'
+let g:netrw_dirhist_5='/home/crymfox/dotfiles/nvim/.config/nvim'
+let g:netrw_dirhist_4='/home/crymfox/dotfiles/nvim/.config/nvim/lua'
